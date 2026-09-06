@@ -13,7 +13,7 @@ import { postLiveMaintenance } from './functions/post-live-maintenance/resource'
  *  - auth        : Cognito User Pool (généré par le template)
  *  - data        : AppSync + DynamoDB (modèles ContentPost et UserUpload)
  *  - storage     : S3 bucket pour les uploads utilisateur
- *  - syncYoutube : Lambda planifiée toutes les 6h (YouTube Data API v3)
+ *  - syncYoutube : Lambda planifiée toutes les 1h (YouTube Data API v3)
  *  - streamOrchestrator : Lambda planifiée toutes les 5 min (pré-live/live/post-live)
  *  - postLiveMaintenance: Lambda planifiée toutes les 1h (archivage post-live)
  */

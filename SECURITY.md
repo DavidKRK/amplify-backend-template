@@ -20,12 +20,12 @@ Please do **not** create a public GitHub issue.
 
 This repository enforces CI blocking for **high/critical direct vulnerabilities**.
 
-One temporary exception is currently tracked in:
+Temporary exceptions are tracked in:
 - `.github/security/audit-exceptions.json`
 
-Current accepted risk:
-- `brace-expansion` via `aws-cdk-lib` is transitive in the build/tooling chain.
-- It is treated as **non-exploitable in production runtime** for the exposed API.
+There is currently **no active accepted risk**: the previous `brace-expansion`
+exception (via `aws-cdk-lib`) was removed because the vulnerability no longer
+appears in audit results.
 
 Exception lifecycle requirements:
 - Owner, advisory, linked issue, and expiration date are mandatory.
