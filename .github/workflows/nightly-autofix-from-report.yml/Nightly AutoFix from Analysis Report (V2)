@@ -1,0 +1,278 @@
+name: Nightly AutoFix from Analysis Report (V2)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 02:20 UTC chaque nuit (après le rapport de 02:00 UTC)
+    - cron: "20 2 * * *"
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: nightly-autofix
+  cancel-in-progress: false
+
+jobs:
+  autofix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - name: Find latest open nightly analysis issue
+        id: issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: "open",
+              per_page: 100
+            });
+
+            const candidates = issues.filter(i =>
+              i.title.includes("Rapport d'Analyse Nocturne")
+            );
+
+            if (candidates.length === 0) {
+              core.notice("No open nightly analysis issue found.");
+              core.setOutput("found", "false");
+              return;
+            }
+
+            candidates.sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+            const issue = candidates[0];
+
+            core.setOutput("found", "true");
+            core.setOutput("number", String(issue.number));
+            core.setOutput("url", issue.html_url);
+            core.setOutput("body", issue.body || "");
+
+      - name: Stop if no issue found
+        if: steps.issue.outputs.found != 'true'
+        run: echo "Nothing to fix tonight."
+
+      - name: Parse outdated deps from issue body
+        if: steps.issue.outputs.found == 'true'
+        id: parse
+        shell: bash
+        env:
+          ISSUE_BODY: ${{ steps.issue.outputs.body }}
+        run: |
+          python3 - <<'PY'
+          import os, re, json
+
+          body = os.environ.get("ISSUE_BODY", "")
+          lines = body.splitlines()
+
+          # Dépendances autorisées en auto-fix
+          allow = {
+            "@aws-sdk/client-dynamodb",
+            "@aws-sdk/lib-dynamodb",
+            "@types/aws-lambda",
+            "aws-cdk",
+            "aws-cdk-lib",
+            "tsx"
+          }
+
+          # Dépendances à ne pas major-bump automatiquement
+          block_major = {"typescript", "@types/node"}
+
+          pkgs = []
+          for ln in lines:
+            # Exemple ligne attendue:
+            # aws-cdk      2.1139.0  2.1140.0  2.1140.0  node_modules/aws-cdk ...
+            m = re.match(r'^\s*([@a-zA-Z0-9._/-]+)\s+([0-9][^\s]*)\s+([0-9][^\s]*)\s+([0-9][^\s]*)\s+.*$', ln)
+            if not m:
+              continue
+
+            pkg, current, wanted, latest = m.groups()
+
+            # ignore explicitement les paquets bloqués
+            if pkg in block_major:
+              continue
+
+            if pkg not in allow:
+              continue
+
+            pkgs.append({
+              "name": pkg,
+              "current": current,
+              "wanted": wanted,
+              "latest": latest
+            })
+
+          # unique by name
+          uniq = {}
+          for p in pkgs:
+            uniq[p["name"]] = p
+          pkgs = list(uniq.values())
+
+          names = [p["name"] for p in pkgs]
+
+          out = os.environ["GITHUB_OUTPUT"]
+          with open(out, "a", encoding="utf-8") as f:
+            f.write(f"count={len(names)}\n")
+            f.write("names_json=" + json.dumps(names) + "\n")
+          PY
+
+      - name: Stop if nothing allowed to update
+        if: steps.parse.outputs.count == '0'
+        run: echo "No allowed dependencies to auto-fix."
+
+      - name: Create branch name
+        if: steps.parse.outputs.count != '0'
+        id: branch
+        run: echo "name=bot/nightly-autofix-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+
+      - name: Update allowed dependencies (targeted)
+        if: steps.parse.outputs.count != '0'
+        shell: bash
+        env:
+          NAMES_JSON: ${{ steps.parse.outputs.names_json }}
+        run: |
+          set -euo pipefail
+          pkgs=$(python3 - <<'PY'
+          import json, os
+          arr = json.loads(os.environ["NAMES_JSON"])
+          print(" ".join(arr))
+          PY
+          )
+
+          if [ -z "$pkgs" ]; then
+            echo "No packages to update."
+            exit 0
+          fi
+
+          echo "Updating: $pkgs"
+          npm install --save-dev $pkgs
+          npm install
+
+      - name: Guardrail - fail on blocked major bumps
+        if: steps.parse.outputs.count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require("fs");
+          const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          const dev = pkg.devDependencies || {};
+
+          function major(v) {
+            const m = String(v).match(/(\d+)\./);
+            return m ? Number(m[1]) : null;
+          }
+
+          // Seuils max auto-autorisés
+          const blockedMax = {
+            "typescript": 5,
+            "@types/node": 20
+          };
+
+          const errors = [];
+          for (const [name, maxMajor] of Object.entries(blockedMax)) {
+            if (!dev[name]) continue;
+            const m = major(dev[name]);
+            if (m !== null && m > maxMajor) {
+              errors.push(`${name} bumped to major ${m} (> ${maxMajor})`);
+            }
+          }
+
+          if (errors.length) {
+            console.error("Guardrail violations:");
+            for (const e of errors) console.error(" - " + e);
+            process.exit(1);
+          }
+
+          console.log("Guardrail OK");
+          NODE
+
+      - name: Run checks
+        if: steps.parse.outputs.count != '0'
+        run: |
+          npm run typecheck --if-present
+          npm test --if-present
+
+      - name: Create Pull Request
+        if: steps.parse.outputs.count != '0'
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: ${{ steps.branch.outputs.name }}
+          commit-message: "chore(deps): nightly auto-fix from analysis issue #${{ steps.issue.outputs.number }}"
+          title: "chore(deps): nightly auto-fix from report #${{ steps.issue.outputs.number }}"
+          body: |
+            Auto-fix généré depuis l’issue d’analyse nocturne #${{ steps.issue.outputs.number }}.
+
+            Source: ${{ steps.issue.outputs.url }}
+
+            Règles:
+            - update ciblé patch/minor de dépendances autorisées
+            - blocage des major bumps pour `typescript` et `@types/node`
+            - exécution des checks (`typecheck`, `test`)
+          labels: |
+            dependencies
+            automated pr
+          draft: false
+
+      - name: Comment on source issue with PR link
+        if: steps.parse.outputs.count != '0' && steps.cpr.outputs.pull-request-number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = Number("${{ steps.issue.outputs.number }}");
+            const prNumber = Number("${{ steps.cpr.outputs.pull-request-number }}");
+            const prUrl = "${{ steps.cpr.outputs.pull-request-url }}";
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: [
+                "🤖 Auto-fix lancé.",
+                "",
+                `PR créée: #${prNumber} (${prUrl})`,
+                "",
+                "Je laisse l’issue ouverte jusqu’au merge de la PR."
+              ].join("\n")
+            });
+
+      - name: Close source issue when no updates are needed
+        if: steps.parse.outputs.count == '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = Number("${{ steps.issue.outputs.number }}");
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: [
+                "✅ Aucun correctif automatique applicable cette nuit.",
+                "",
+                "Fermeture automatique de l’issue."
+              ].join("\n")
+            });
+
+            await github.rest.issues.update({
+              owner,
+              repo,
+              issue_number,
+              state: "closed"
+            });

@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "typecheck": "tsc --noEmit --project amplify/tsconfig.json"
+    "typecheck": "tsc --noEmit --project amplify/tsconfig.json",
+    "check": "npm run typecheck && npm audit"
   },
   "keywords": [],
   "author": "David KRK",
@@ -13,18 +14,30 @@
   "devDependencies": {
     "@aws-amplify/backend": "^1.24.0",
     "@aws-amplify/backend-cli": "^1.9.0",
-    "@types/aws-lambda": "^8.10.162",
-    "@types/node": "^20.19.43",
-    "aws-cdk": "^2.1136.0",
-    "aws-cdk-lib": "^2.264.0",
+    "@types/aws-lambda": "^8.10.163",
+    "@types/node": "^24.13.3",
+    "aws-cdk": "^2.1140.0",
+    "aws-cdk-lib": "^2.268.0",
     "constructs": "^10.8.1",
     "esbuild": "^0.28.2",
-    "tsx": "^4.23.12",
+    "tsx": "^4.23.13",
     "typescript": "^5.7.3"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.1108.0",
-    "@aws-sdk/lib-dynamodb": "^3.1108.0",
+    "@aws-amplify/backend-auth": "^1.9.4",
+    "@aws-amplify/backend-data": "^1.8.0",
+    "@aws-amplify/backend-function": "^1.18.2",
+    "@aws-amplify/backend-storage": "^1.5.0",
+    "@aws-amplify/data-construct": "^1.17.7",
+    "@aws-amplify/graphql-api-construct": "^1.22.2",
+    "@aws-sdk/client-dynamodb": "^3.1127.0",
+    "@aws-sdk/lib-dynamodb": "^3.1127.0",
     "aws-amplify": "^6.20.0"
+  },
+  "overrides": {
+    "lodash": "^4.17.24",
+    "immutable": "^4.3.9",
+    "mysql2": "^3.24.1",
+    "fast-uri": "^3.1.6"
   }
 }

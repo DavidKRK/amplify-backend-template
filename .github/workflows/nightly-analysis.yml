@@ -26,7 +26,7 @@ jobs:
           cache: "npm"
 
       - name: Installation des dépendances
-        run: npm ci
+        run: npm install
 
       - name: Vérification TypeScript (typecheck)
         id: typecheck
@@ -78,7 +78,7 @@ jobs:
             echo ""
             grep -rn --include="*.ts" --include="*.js" --include="*.json" \
               -E "(TODO|FIXME|HACK|XXX|WARN)" . \
-              --exclude-dir=node_modules --exclude-dir=.git || echo "Aucun trouvé ✅"
+              --exclude-dir=node_modules --exclude-dir=.git --exclude="package-lock.json" || echo "Aucun trouvé ✅"
             echo ""
             echo "### Console.log restants"
             echo ""

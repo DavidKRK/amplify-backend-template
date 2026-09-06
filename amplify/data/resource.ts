@@ -8,6 +8,82 @@ import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
  */
 const schema = a.schema({
   /**
+   * StreamDestination — Configuration des destinations de livestreaming
+   * (YouTube, Twitch, Facebook, Instagram, etc.).
+   */
+  StreamDestination: a
+    .model({
+      /** Plateforme cible (youtube, twitch, facebook, instagram, ...) */
+      platform: a.string().required(),
+      /** Nom métier de la destination (ex: YouTube Principal) */
+      name: a.string().required(),
+      /** Destination activée/désactivée */
+      enabled: a.boolean().required(),
+      /** Statut opérationnel : active | disabled | error */
+      status: a.string().required(),
+      /** Référence du secret (nom/clé) pour la stream key/token */
+      streamKeySecretName: a.string(),
+      /** URL RTMP cible (ou URL restream) */
+      rtmpUrl: a.string(),
+      /** ID chaîne/compte (optionnel selon plateforme) */
+      channelId: a.string(),
+      /** ID page Facebook (optionnel) */
+      pageId: a.string(),
+      /** Paramètres par défaut du live */
+      defaultTitle: a.string(),
+      defaultDescription: a.string(),
+      /** Paramètres additionnels JSON (tags, catégorie, etc.) */
+      settingsJson: a.string(),
+      /** Dernière erreur connue */
+      lastError: a.string(),
+      /** Dernière synchronisation des métadonnées */
+      lastSyncedAt: a.string(),
+    })
+    .secondaryIndexes((index) => [
+      index("status").name("byStatus").projection("ALL"),
+    ])
+    .authorization((allow) => [
+      allow.groups(["admin"]),
+    ]),
+
+  /**
+   * StreamSession — Session de diffusion centralisée pilotée par l'orchestrateur.
+   * Le cycle de vie est géré en phases : pending -> starting -> live -> ending -> ended.
+   */
+  StreamSession: a
+    .model({
+      /** Titre du livestream */
+      title: a.string().required(),
+      /** Description du livestream */
+      description: a.string(),
+      /** Date/heure prévue de démarrage */
+      plannedStartAt: a.string(),
+      /** Date/heure prévue de fin */
+      plannedEndAt: a.string(),
+      /** Statut global : pending | starting | live | ending | ended | failed */
+      status: a.string().required(),
+      /** Profil/scene OBS utilisés */
+      obsProfile: a.string(),
+      obsScene: a.string(),
+      /** IDs de destinations ciblées (JSON string[]) */
+      destinationsJson: a.string(),
+      /** Résultats par plateforme (JSON) */
+      resultsJson: a.string(),
+      /** Horodatages de vie */
+      startedAt: a.string(),
+      endedAt: a.string(),
+      postLiveProcessedAt: a.string(),
+      /** Dernière erreur globale */
+      lastError: a.string(),
+    })
+    .secondaryIndexes((index) => [
+      index("status").name("byStatus").projection("ALL"),
+    ])
+    .authorization((allow) => [
+      allow.groups(["admin"]),
+    ]),
+
+  /**
    * UserUpload — Fichier uploadé par un utilisateur authentifié
    * Autorisations : propriétaire (CRUD), lecture publique via API Key.
    */
@@ -63,7 +139,7 @@ const schema = a.schema({
     .identifier(["source", "externalId"])
     .authorization((allow) => [
       // Lecture publique via API Key (ton site front)
-      allow.publicApiKey().to(["read", "list"]),
+      allow.publicApiKey().to(["read"]),
     ]),
 });
 

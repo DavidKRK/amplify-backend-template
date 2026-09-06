@@ -1,0 +1,64 @@
+name: "🛡️ Security Audit Gate"
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  schedule:
+    - cron: "30 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-gate:
+    name: "Audit gate (direct high/critical)"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout du dépôt
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - name: Installation des dépendances
+        run: npm install
+
+      - name: Vérifier l'usage de glob sans entrée non fiable
+        run: node .github/scripts/no-untrusted-glob-patterns.mjs
+
+      - name: Générer le rapport audit JSON
+        run: npm audit --json > audit.json || true
+
+      - name: Appliquer la policy de sécurité CI
+        run: node .github/scripts/security-audit-gate.mjs audit.json .github/security/audit-exceptions.json
+
+  weekly-upstream-monitor:
+    name: "Weekly upstream monitor (aws-cdk-lib/brace-expansion)"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+
+    steps:
+      - name: Checkout du dépôt
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - name: Installation des dépendances
+        run: npm install
+
+      - name: Générer le rapport audit JSON
+        run: npm audit --json > audit.json || true
+
+      - name: Vérifier l'amont et la dérogation
+        run: node .github/scripts/security-upstream-monitor.mjs audit.json .github/security/audit-exceptions.json

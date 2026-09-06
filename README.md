@@ -9,7 +9,9 @@ Backend AWS Amplify Gen 2 pour l'automatisation de la chaîne **DavidKRK** — s
 | `auth` | Amazon Cognito | Authentification des utilisateurs |
 | `data` | AWS AppSync + DynamoDB | API GraphQL + modèles `ContentPost` et `UserUpload` |
 | `storage` | Amazon S3 | Stockage des fichiers uploadés |
-| `sync-youtube` | Lambda (planifiée) | Synchronisation YouTube toutes les 6 h |
+| `sync-youtube` | Lambda (planifiée) | Synchronisation YouTube toutes les heures |
+| `stream-orchestrator` | Lambda (planifiée) | Orchestration multi-plateformes (pré-live/live/post-live) toutes les 5 min |
+| `post-live-maintenance` | Lambda (planifiée) | Archivage post-live, enrichissement et republication toutes les 1 h |
 
 ## Modèles de données
 
@@ -17,6 +19,16 @@ Backend AWS Amplify Gen 2 pour l'automatisation de la chaîne **DavidKRK** — s
 Vidéos YouTube synchronisées automatiquement depuis la chaîne DavidKRK.
 - Lecture/liste publique via API Key
 - Écriture via la Lambda `sync-youtube` (IAM)
+
+### StreamDestination
+Configuration des destinations de diffusion (YouTube, Twitch, Facebook, etc.).
+- Gestion des URLs/keys/tokens via références de secrets
+- Activation/désactivation par destination
+
+### StreamSession
+Session de livestream pilotée par orchestrateur backend.
+- Cycle de vie: `pending` → `starting` → `live` → `ending` → `ended`/`failed`
+- Suivi centralisé des résultats et erreurs par destination
 
 ### UserUpload
 Fichiers uploadés par les utilisateurs authentifiés (audio, images, etc.).
@@ -58,6 +70,28 @@ npx ampx pipeline-deploy --branch <branche> --app-id <app-id>
 |----------|-------------|
 | `YOUTUBE_API_KEY` | Clé API Google Cloud (YouTube Data API v3) |
 | `YOUTUBE_CHANNEL_ID` | ID de la chaîne YouTube (commence par `UC`) |
+| `YOUTUBE_LIVE_WEBHOOK_URL` | Endpoint d'intégration live YouTube (optionnel) |
+| `TWITCH_LIVE_WEBHOOK_URL` | Endpoint d'intégration live Twitch (optionnel) |
+| `FACEBOOK_LIVE_WEBHOOK_URL` | Endpoint d'intégration live Facebook Page (optionnel) |
+| `ALLOW_SIMULATED_CONNECTORS` | `true` pour autoriser un mode simulation sans webhook (sinon échec explicite) |
+
+## Lancement d'un livestream (V1)
+
+1. Créer/activer les `StreamDestination` (YouTube/Twitch/Facebook).
+2. Créer une `StreamSession` avec `status = pending` et les destinations ciblées (`destinationsJson`).
+3. Démarrer le stream dans OBS (profil/scène).
+4. `stream-orchestrator` exécute automatiquement:
+   - Pré-live (préparation plateformes)
+   - Live (démarrage)
+   - Post-live (arrêt selon `plannedEndAt`)
+5. `post-live-maintenance` archive la session terminée dans `ContentPost`.
+
+## Incidents fréquents
+
+- **Aucune destination active**: la session passe en `failed` avec `lastError`.
+- **Plateforme non supportée**: la destination est rejetée au niveau orchestrateur.
+- **Webhook indisponible**: la phase concernée échoue, la session passe en `failed`.
+- **Archive déjà créée**: ignorée automatiquement (idempotence DynamoDB).
 
 > ⚠️ Ne jamais committer ces valeurs dans le code source.
 
