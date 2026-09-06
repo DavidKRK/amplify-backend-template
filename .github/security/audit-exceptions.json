@@ -1,16 +1,3 @@
 {
-  "exceptions": [
-    {
-      "id": "brace-expansion-aws-cdk-lib-transitive",
-      "package": "brace-expansion",
-      "nodePathContains": "node_modules/aws-cdk-lib/node_modules/brace-expansion",
-      "advisory": "GHSA-rgw5-rvv9-x895",
-      "severity": "high",
-      "owner": "@DavidKRK",
-      "issue": "https://github.com/DavidKRK/davidkrk-automation-backend/issues/53",
-      "expiresOn": "2026-09-11",
-      "reason": "Vulnérabilité transitive dans la chaîne d'outillage (aws-cdk-lib) non utilisée au runtime API en production.",
-      "mitigation": "Aucune entrée utilisateur n'alimente de patterns glob internes ; surveillance hebdomadaire de l'amont activée."
-    }
-  ]
+  "exceptions": []
 }
