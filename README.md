@@ -9,7 +9,7 @@ Backend AWS Amplify Gen 2 pour l'automatisation de la chaîne **DavidKRK** — s
 | `auth` | Amazon Cognito | Authentification des utilisateurs |
 | `data` | AWS AppSync + DynamoDB | API GraphQL + modèles `ContentPost` et `UserUpload` |
 | `storage` | Amazon S3 | Stockage des fichiers uploadés |
-| `sync-youtube` | Lambda (planifiée) | Synchronisation YouTube toutes les 6 h |
+| `sync-youtube` | Lambda (planifiée) | Synchronisation YouTube toutes les heures |
 | `stream-orchestrator` | Lambda (planifiée) | Orchestration multi-plateformes (pré-live/live/post-live) toutes les 5 min |
 | `post-live-maintenance` | Lambda (planifiée) | Archivage post-live, enrichissement et republication toutes les 1 h |
 

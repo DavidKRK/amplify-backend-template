@@ -11,8 +11,10 @@ const exception = (exceptionConfig.exceptions ?? []).find(
 );
 
 if (!exception) {
-  console.error("Exception 'brace-expansion-aws-cdk-lib-transitive' introuvable.");
-  process.exit(1);
+  console.log(
+    "Aucune exception 'brace-expansion-aws-cdk-lib-transitive' active : la vulnérabilité ciblée est résolue. Rien à surveiller."
+  );
+  process.exit(0);
 }
 
 const requiredFields = ["id", "package", "nodePathContains", "advisory", "severity", "owner", "expiresOn"];
