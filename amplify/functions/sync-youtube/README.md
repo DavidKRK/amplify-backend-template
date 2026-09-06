@@ -11,7 +11,7 @@ Toutes les **heures** (configurable dans `resource.ts` → `schedule`).
 
 ## Variables d'environnement
 
-À définir dans **Amplify Console → App settings → Environment variables** :
+À définir comme secrets Amplify pour l'environnement déployé :
 
 | Variable            | Description                                          | Exemple                  |
 |---------------------|------------------------------------------------------|---------------------------|
@@ -19,6 +19,13 @@ Toutes les **heures** (configurable dans `resource.ts` → `schedule`).
 | `YOUTUBE_CHANNEL_ID`| ID de la chaîne YouTube (commence par UC...)         | `UCxxxxxxxxxxxxxxxxxxxxxxx` |
 
 > ⚠️ Ne jamais committer ces valeurs dans le code source.
+
+Après le déploiement de cette modification, définir les deux secrets avec la CLI
+Amplify (`npx ampx secret set YOUTUBE_API_KEY` puis
+`npx ampx secret set YOUTUBE_CHANNEL_ID`) ou leur équivalent dans la
+configuration des secrets du pipeline Amplify. Les variables d'environnement
+classiques d'Amplify Console ne sont pas automatiquement transmises à cette
+Lambda.
 
 ## Comment obtenir les variables
 
