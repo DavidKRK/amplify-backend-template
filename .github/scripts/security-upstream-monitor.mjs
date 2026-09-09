@@ -1,14 +1,24 @@
 import fs from "node:fs";
 import { execFileSync } from "node:child_process";
+import { validateExceptionConfig } from "./security-exception-config.mjs";
 
 const auditPath = process.argv[2] ?? "audit.json";
 const exceptionsPath = process.argv[3] ?? ".github/security/audit-exceptions.json";
 
 const audit = JSON.parse(fs.readFileSync(auditPath, "utf8"));
 const exceptionConfig = JSON.parse(fs.readFileSync(exceptionsPath, "utf8"));
-const exceptions = (exceptionConfig.exceptions ?? []).filter(
-  (item) => item.upstreamPackage
-);
+let exceptions;
+
+try {
+  exceptions = validateExceptionConfig(exceptionConfig, {
+    requireUpstreamPackage: true,
+  }).filter(
+    (item) => item.upstreamPackage
+  );
+} catch (error) {
+  console.error(`Configuration d'exceptions invalide:\n${error.message}`);
+  process.exit(1);
+}
 
 if (exceptions.length === 0) {
   console.log(
@@ -19,32 +29,12 @@ if (exceptions.length === 0) {
 
 const lock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
 const today = new Date().toISOString().slice(0, 10);
-const requiredFields = [
-  "id",
-  "package",
-  "nodePathContains",
-  "advisory",
-  "severity",
-  "owner",
-  "issue",
-  "upstreamPackage",
-  "expiresOn",
-];
 
 let hasFailure = false;
 
 console.log("Suivi hebdomadaire amont:");
 
 for (const exception of exceptions) {
-  const missingFields = requiredFields.filter((field) => !exception[field]);
-  if (missingFields.length > 0) {
-    console.error(
-      `[${exception.id ?? "unknown"}] Champs obligatoires manquants dans l'exception: ${missingFields.join(", ")}`
-    );
-    hasFailure = true;
-    continue;
-  }
-
   const installed = lock.packages?.[`node_modules/${exception.upstreamPackage}`]?.version;
   if (!installed) {
     console.error(
@@ -81,6 +71,13 @@ for (const exception of exceptions) {
   console.log(`  - Exception expire le: ${exception.expiresOn}`);
   console.log(`  - Suivi: ${exception.issue}`);
 
+  if (today > exception.expiresOn) {
+    console.error(
+      `[${exception.id}] Dérogation expirée: retirez l'exception ou prolongez-la avec justification.`
+    );
+    hasFailure = true;
+  }
+
   if (!stillPresent) {
     console.error(
       `[${exception.id}] La vulnérabilité ciblée n'apparaît plus: supprimez l'exception temporaire, retirez l'ignore Dependabot et clôturez ${exception.issue}.`
@@ -93,14 +90,6 @@ for (const exception of exceptions) {
     console.warn(
       `[${exception.id}] Une nouvelle version de ${exception.upstreamPackage} est disponible (${latest}): évaluez l'upgrade dans ${exception.issue} pour retirer l'exception si elle corrige la chaîne transitive.`
     );
-    continue;
-  }
-
-  if (today > exception.expiresOn) {
-    console.error(
-      `[${exception.id}] Dérogation expirée: retirez l'exception ou prolongez-la avec justification.`
-    );
-    hasFailure = true;
   }
 }
 
