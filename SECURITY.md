@@ -23,12 +23,19 @@ This repository enforces CI blocking for **high/critical direct vulnerabilities*
 Temporary exceptions are tracked in:
 - `.github/security/audit-exceptions.json`
 
-There is currently **no active accepted risk**: the previous `brace-expansion`
-exception (via `aws-cdk-lib`) was removed because the vulnerability no longer
-appears in audit results.
+There is currently **one temporary accepted risk**:
+
+- `csv-parse` (`GHSA-8cw4-87c7-c6xx`) remains transitively pinned below the fixed
+  range by the latest published `@aws-amplify/backend-cli` line through
+  `@aws-amplify/graphql-schema-generator@0.11.16`.
+- Dependabot ignores only `csv-parse` for this repository while follow-up issue
+  `#98` tracks removal of the exception.
+- The scheduled upstream monitor reports when a new published
+  `@aws-amplify/backend-cli` version appears, and fails if the vulnerability
+  disappears from `npm audit` or if the exception expires.
 
 Exception lifecycle requirements:
 - Owner, advisory, linked issue, and expiration date are mandatory.
-- Weekly monitoring checks upstream (`aws-cdk-lib`) and forces follow-up when a new version is available.
+- Weekly monitoring checks the blocked upstream package and reports when a new version should be evaluated.
 - If the targeted vulnerability disappears from audit results, the exception must be removed immediately.
 - On expiry, CI fails until the exception is removed or renewed with explicit justification.

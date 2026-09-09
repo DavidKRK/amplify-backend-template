@@ -1,3 +1,17 @@
 {
-  "exceptions": []
+  "exceptions": [
+    {
+      "id": "csv-parse-amplify-backend-cli-transitive",
+      "package": "csv-parse",
+      "nodePathContains": "node_modules/csv-parse",
+      "effectContains": "@aws-amplify/graphql-schema-generator",
+      "advisory": "GHSA-8cw4-87c7-c6xx",
+      "severity": "moderate",
+      "owner": "@DavidKRK",
+      "issue": "#98",
+      "upstreamPackage": "@aws-amplify/backend-cli",
+      "expiresOn": "2026-12-31",
+      "reason": "Dependabot security updates are blocked because the latest published @aws-amplify/backend-cli line still resolves @aws-amplify/graphql-schema-generator@0.11.16, which requires csv-parse@^5.5.2."
+    }
+  ]
 }

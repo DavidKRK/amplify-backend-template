@@ -1,11 +1,20 @@
 import fs from "node:fs";
+import { validateExceptionConfig } from "./security-exception-config.mjs";
 
 const auditPath = process.argv[2] ?? "audit.json";
 const exceptionsPath = process.argv[3] ?? ".github/security/audit-exceptions.json";
 
 const audit = JSON.parse(fs.readFileSync(auditPath, "utf8"));
 const exceptionConfig = JSON.parse(fs.readFileSync(exceptionsPath, "utf8"));
-const exceptions = exceptionConfig.exceptions ?? [];
+let exceptions;
+
+try {
+  exceptions = validateExceptionConfig(exceptionConfig);
+} catch (error) {
+  console.error(`Configuration d'exceptions invalide:\n${error.message}`);
+  process.exit(1);
+}
+
 const vulnerabilities = Object.entries(audit.vulnerabilities ?? {});
 
 const blockers = [];
@@ -30,7 +39,16 @@ for (const [name, vuln] of vulnerabilities) {
     }
 
     const nodes = vuln.nodes ?? [];
-    return nodes.some((node) => node.includes(exception.nodePathContains));
+    if (!nodes.some((node) => node.includes(exception.nodePathContains))) {
+      return false;
+    }
+
+    if (!exception.effectContains) {
+      return true;
+    }
+
+    const effects = vuln.effects ?? [];
+    return effects.some((effect) => effect.includes(exception.effectContains));
   });
 
   if (!match) {
