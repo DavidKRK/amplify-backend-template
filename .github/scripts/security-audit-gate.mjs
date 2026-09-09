@@ -30,7 +30,16 @@ for (const [name, vuln] of vulnerabilities) {
     }
 
     const nodes = vuln.nodes ?? [];
-    return nodes.some((node) => node.includes(exception.nodePathContains));
+    if (!nodes.some((node) => node.includes(exception.nodePathContains))) {
+      return false;
+    }
+
+    if (!exception.effectContains) {
+      return true;
+    }
+
+    const effects = vuln.effects ?? [];
+    return effects.some((effect) => effect.includes(exception.effectContains));
   });
 
   if (!match) {
