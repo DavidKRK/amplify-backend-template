@@ -179,7 +179,7 @@ jobs:
           // Seuils max auto-autorisés
           const blockedMax = {
             "typescript": 5,
-            "@types/node": 20
+            "@types/node": 26
           };
 
           const errors = [];
