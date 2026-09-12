@@ -5,9 +5,9 @@ updates:
     schedule:
       interval: "weekly"
     ignore:
-      # Temporary: GitHub cannot apply the csv-parse security update while the
-      # latest published Amplify CLI line still resolves
-      # @aws-amplify/graphql-schema-generator@0.11.16 -> csv-parse@^5.5.2.
-      # Remove this ignore as part of issue #98 once an upstream-compatible
+      # Temporary (issue #98): Dependabot security updates remain blocked by
+      # upstream Amplify transitive constraints (csv-parse and
+      # @opentelemetry/core). Remove these ignores once an upstream-compatible
       # Amplify upgrade path exists or the vulnerability disappears from audit.
       - dependency-name: "csv-parse"
+      - dependency-name: "@opentelemetry/core"
