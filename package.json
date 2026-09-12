@@ -15,7 +15,7 @@
     "@aws-amplify/backend": "^1.25.0",
     "@aws-amplify/backend-cli": "^1.10.0",
     "@types/aws-lambda": "^8.10.163",
-    "@types/node": "^24.13.4",
+    "@types/node": "^26.5.0",
     "aws-cdk": "^2.1141.0",
     "aws-cdk-lib": "^2.269.0",
     "constructs": "^10.8.1",
