@@ -177,17 +177,17 @@ jobs:
               return f"^{wanted_version}"
             if current_spec.startswith("~"):
               return f"~{wanted_version}"
-            op_match = re.match(r"^(>=|<=|>|<|=)\s*\d+\.\d+\.\d+([.-].+)?$", current_spec)
+            op_match = re.match(r"^(>=|<=|>|<|=)(\s*)\d+\.\d+\.\d+([.-].+)?$", current_spec)
             if op_match:
-              return f"{op_match.group(1)}{wanted_version}"
-            if re.match(r"^\d+\.\d+\.\d+([.-].+)?$", current_spec):
+              return f"{op_match.group(1)}{op_match.group(2)}{wanted_version}"
+            if re.match(r"^\d+(\.\d+){0,2}([.-].+)?$", current_spec):
               return str(wanted_version)
             return None
 
           runtime = []
           tooling = []
           missing = []
-          skipped = []
+          unsupported = []
           for item in packages:
             name = item["name"]
             wanted = item["wanted"]
@@ -195,7 +195,7 @@ jobs:
               current = dep_specs.get(name)
               spec = wanted_spec(current, wanted)
               if spec is None:
-                skipped.append(f"{name} ({current})")
+                unsupported.append(f"{name} ({current} -> {wanted})")
                 continue
               dep_specs[name] = spec
               runtime.append((name, spec))
@@ -203,7 +203,7 @@ jobs:
               current = dev_specs.get(name)
               spec = wanted_spec(current, wanted)
               if spec is None:
-                skipped.append(f"{name} ({current})")
+                unsupported.append(f"{name} ({current} -> {wanted})")
                 continue
               dev_specs[name] = spec
               tooling.append((name, spec))
@@ -212,8 +212,9 @@ jobs:
 
           if missing:
             print("Skipping packages with unknown scope:", " ".join(missing))
-          if skipped:
-            print("Skipping packages with unsupported current spec:", " ".join(skipped))
+          if unsupported:
+            print("Unsupported direct dependency specs:", " | ".join(unsupported))
+            sys.exit(1)
 
           if runtime:
             print("Updating runtime dependencies:", " ".join(f"{name}@{version}" for name, version in runtime))
