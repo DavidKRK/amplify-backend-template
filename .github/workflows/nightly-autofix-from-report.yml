@@ -161,6 +161,8 @@ jobs:
           with open("package.json", "r", encoding="utf-8") as f:
             pkg = json.load(f)
 
+          had_dependencies = "dependencies" in pkg
+          had_dev_dependencies = "devDependencies" in pkg
           deps = set((pkg.get("dependencies") or {}).keys())
           dev_deps = set((pkg.get("devDependencies") or {}).keys())
           dep_specs = dict(pkg.get("dependencies") or {})
@@ -175,6 +177,9 @@ jobs:
               return f"^{wanted_version}"
             if current_spec.startswith("~"):
               return f"~{wanted_version}"
+            op_match = re.match(r"^(>=|<=|>|<|=)\s*\d+\.\d+\.\d+([.-].+)?$", current_spec)
+            if op_match:
+              return f"{op_match.group(1)}{wanted_version}"
             if re.match(r"^\d+\.\d+\.\d+([.-].+)?$", current_spec):
               return str(wanted_version)
             return None
@@ -220,8 +225,15 @@ jobs:
             print("No direct dependencies to update.")
             sys.exit(0)
 
-          pkg["dependencies"] = dep_specs
-          pkg["devDependencies"] = dev_specs
+          if had_dependencies or dep_specs:
+            pkg["dependencies"] = dep_specs
+          else:
+            pkg.pop("dependencies", None)
+
+          if had_dev_dependencies or dev_specs:
+            pkg["devDependencies"] = dev_specs
+          else:
+            pkg.pop("devDependencies", None)
           with open("package.json", "w", encoding="utf-8") as f:
             json.dump(pkg, f, ensure_ascii=False, indent=2)
             f.write("\n")
