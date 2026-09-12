@@ -183,8 +183,6 @@ jobs:
             sys.exit(0)
           PY
 
-          npm install
-
       - name: Guardrail - fail on blocked major bumps
         if: steps.parse.outputs.count != '0'
         shell: bash
