@@ -80,6 +80,12 @@ jobs:
 
           # Dépendances autorisées en auto-fix
           allow = {
+            "@aws-amplify/backend",
+            "@aws-amplify/backend-auth",
+            "@aws-amplify/backend-cli",
+            "@aws-amplify/backend-data",
+            "@aws-amplify/backend-function",
+            "@aws-amplify/backend-storage",
             "@aws-sdk/client-dynamodb",
             "@aws-sdk/lib-dynamodb",
             "@types/aws-lambda",
@@ -145,20 +151,50 @@ jobs:
           NAMES_JSON: ${{ steps.parse.outputs.names_json }}
         run: |
           set -euo pipefail
-          pkgs=$(python3 - <<'PY'
-          import json, os
-          arr = json.loads(os.environ["NAMES_JSON"])
-          print(" ".join(arr))
-          PY
-          )
-
-          if [ -z "$pkgs" ]; then
+          if [ -z "${NAMES_JSON}" ] || [ "${NAMES_JSON}" = "[]" ]; then
             echo "No packages to update."
             exit 0
           fi
 
-          echo "Updating: $pkgs"
-          npm install --save-dev $pkgs
+          node - <<'NODE'
+          const fs = require("fs");
+          const { spawnSync } = require("child_process");
+
+          const names = JSON.parse(process.env.NAMES_JSON || "[]");
+          const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          const deps = manifest.dependencies || {};
+          const devDeps = manifest.devDependencies || {};
+
+          const updateDeps = [];
+          const updateDevDeps = [];
+          const missing = [];
+
+          for (const name of names) {
+            if (Object.prototype.hasOwnProperty.call(deps, name)) {
+              updateDeps.push(name);
+            } else if (Object.prototype.hasOwnProperty.call(devDeps, name)) {
+              updateDevDeps.push(name);
+            } else {
+              missing.push(name);
+            }
+          }
+
+          if (missing.length) {
+            console.error("Allowed package(s) not found in package.json:", missing.join(", "));
+            process.exit(1);
+          }
+
+          const run = (args) => {
+            const cmd = ["install", ...args];
+            console.log(`Running: npm ${cmd.join(" ")}`);
+            const res = spawnSync("npm", cmd, { stdio: "inherit" });
+            if (res.status !== 0) process.exit(res.status || 1);
+          };
+
+          if (updateDeps.length) run(updateDeps);
+          if (updateDevDeps.length) run(["--save-dev", ...updateDevDeps]);
+          NODE
+
           npm install
 
       - name: Guardrail - fail on blocked major bumps
@@ -179,7 +215,7 @@ jobs:
           // Seuils max auto-autorisés
           const blockedMax = {
             "typescript": 5,
-            "@types/node": 20
+            "@types/node": 24
           };
 
           const errors = [];
@@ -203,8 +239,14 @@ jobs:
       - name: Run checks
         if: steps.parse.outputs.count != '0'
         run: |
+          set -euo pipefail
           npm run typecheck --if-present
-          npm test --if-present
+          test_script="$(npm pkg get scripts.test || true)"
+          if [ -z "${test_script}" ] || [ "${test_script}" = "null" ] || echo "${test_script}" | grep -q "no test specified"; then
+            echo "Skipping placeholder test script."
+          else
+            npm test --if-present
+          fi
 
       - name: Create Pull Request
         if: steps.parse.outputs.count != '0'
