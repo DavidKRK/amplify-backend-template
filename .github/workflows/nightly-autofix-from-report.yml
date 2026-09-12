@@ -127,6 +127,7 @@ jobs:
           with open(out, "a", encoding="utf-8") as f:
             f.write(f"count={len(names)}\n")
             f.write("names_json=" + json.dumps(names) + "\n")
+            f.write("packages_json=" + json.dumps(pkgs) + "\n")
           PY
 
       - name: Stop if nothing allowed to update
@@ -142,7 +143,7 @@ jobs:
         if: steps.parse.outputs.count != '0'
         shell: bash
         env:
-          NAMES_JSON: ${{ steps.parse.outputs.names_json }}
+          PACKAGES_JSON: ${{ steps.parse.outputs.packages_json }}
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -151,8 +152,8 @@ jobs:
           import subprocess
           import sys
 
-          names = json.loads(os.environ["NAMES_JSON"])
-          if not names:
+          packages = json.loads(os.environ["PACKAGES_JSON"])
+          if not packages:
             print("No packages to update.")
             sys.exit(0)
 
@@ -162,9 +163,19 @@ jobs:
           deps = set((pkg.get("dependencies") or {}).keys())
           dev_deps = set((pkg.get("devDependencies") or {}).keys())
 
-          runtime = [name for name in names if name in deps]
-          tooling = [name for name in names if name in dev_deps]
-          missing = [name for name in names if name not in deps and name not in dev_deps]
+          runtime = []
+          tooling = []
+          missing = []
+          for item in packages:
+            name = item["name"]
+            wanted = item["wanted"]
+            target = f"{name}@{wanted}"
+            if name in deps:
+              runtime.append(target)
+            elif name in dev_deps:
+              tooling.append(target)
+            else:
+              missing.append(target)
 
           if missing:
             print("Skipping packages with unknown scope:", " ".join(missing))
