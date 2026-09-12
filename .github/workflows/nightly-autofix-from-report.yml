@@ -168,8 +168,19 @@ jobs:
           dep_specs = dict(pkg.get("dependencies") or {})
           dev_specs = dict(pkg.get("devDependencies") or {})
 
+          def is_supported_wanted(value):
+            if not isinstance(value, str):
+              return False
+            v = value.strip()
+            return bool(
+              re.match(r"^(\^|~)?\d+(\.\d+){0,2}([.-][0-9A-Za-z.-]+)?$", v)
+              or re.match(r"^(>=|<=|>|<|=)\s*\d+(\.\d+){0,2}([.-][0-9A-Za-z.-]+)?$", v)
+            )
+
           def wanted_spec(current_spec, wanted_version):
             if not isinstance(current_spec, str):
+              return None
+            if not is_supported_wanted(wanted_version):
               return None
             if isinstance(wanted_version, str) and wanted_version[:1] in {"^", "~", ">", "<", "="}:
               return wanted_version
