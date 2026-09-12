@@ -149,6 +149,7 @@ jobs:
           python3 - <<'PY'
           import json
           import os
+          import re
           import subprocess
           import sys
 
@@ -162,51 +163,68 @@ jobs:
 
           deps = set((pkg.get("dependencies") or {}).keys())
           dev_deps = set((pkg.get("devDependencies") or {}).keys())
-          dep_specs = pkg.get("dependencies") or {}
-          dev_specs = pkg.get("devDependencies") or {}
+          dep_specs = dict(pkg.get("dependencies") or {})
+          dev_specs = dict(pkg.get("devDependencies") or {})
 
           def wanted_spec(current_spec, wanted_version):
+            if not isinstance(current_spec, str):
+              return None
             if isinstance(wanted_version, str) and wanted_version[:1] in {"^", "~", ">", "<", "="}:
               return wanted_version
-            if isinstance(current_spec, str) and current_spec.startswith("^"):
+            if current_spec.startswith("^"):
               return f"^{wanted_version}"
-            if isinstance(current_spec, str) and current_spec.startswith("~"):
+            if current_spec.startswith("~"):
               return f"~{wanted_version}"
-            return str(wanted_version)
+            if re.match(r"^\d+\.\d+\.\d+([.-].+)?$", current_spec):
+              return str(wanted_version)
+            return None
 
           runtime = []
           tooling = []
           missing = []
+          skipped = []
           for item in packages:
             name = item["name"]
             wanted = item["wanted"]
             if name in deps:
-              runtime.append((name, wanted_spec(dep_specs.get(name), wanted)))
+              current = dep_specs.get(name)
+              spec = wanted_spec(current, wanted)
+              if spec is None:
+                skipped.append(f"{name} ({current})")
+                continue
+              dep_specs[name] = spec
+              runtime.append((name, spec))
             elif name in dev_deps:
-              tooling.append((name, wanted_spec(dev_specs.get(name), wanted)))
+              current = dev_specs.get(name)
+              spec = wanted_spec(current, wanted)
+              if spec is None:
+                skipped.append(f"{name} ({current})")
+                continue
+              dev_specs[name] = spec
+              tooling.append((name, spec))
             else:
               missing.append(f"{name}@{wanted}")
 
           if missing:
             print("Skipping packages with unknown scope:", " ".join(missing))
+          if skipped:
+            print("Skipping packages with unsupported current spec:", " ".join(skipped))
 
           if runtime:
             print("Updating runtime dependencies:", " ".join(f"{name}@{version}" for name, version in runtime))
-            subprocess.check_call([
-              "npm", "pkg", "set",
-              *[f"dependencies.{name}={version}" for name, version in runtime]
-            ])
 
           if tooling:
             print("Updating dev dependencies:", " ".join(f"{name}@{version}" for name, version in tooling))
-            subprocess.check_call([
-              "npm", "pkg", "set",
-              *[f"devDependencies.{name}={version}" for name, version in tooling]
-            ])
 
           if not runtime and not tooling:
             print("No direct dependencies to update.")
             sys.exit(0)
+
+          pkg["dependencies"] = dep_specs
+          pkg["devDependencies"] = dev_specs
+          with open("package.json", "w", encoding="utf-8") as f:
+            json.dump(pkg, f, ensure_ascii=False, indent=2)
+            f.write("\n")
 
           subprocess.check_call(["npm", "install"])
           PY
