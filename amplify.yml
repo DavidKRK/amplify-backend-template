@@ -3,8 +3,8 @@ backend:
   phases:
     preBuild:
       commands:
-        - nvm install 20
-        - nvm use 20
+        - nvm install 26
+        - nvm use 26
         - node -v
         - npm ci --cache .npm --prefer-offline
     build:
