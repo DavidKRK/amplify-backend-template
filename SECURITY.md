@@ -26,8 +26,10 @@ Temporary exceptions are tracked in:
 There is currently **one temporary accepted risk**:
 
 - `csv-parse` (`GHSA-8cw4-87c7-c6xx`) remains transitively pinned below the fixed
-  range by the latest published `@aws-amplify/backend-cli` line through
-  `@aws-amplify/graphql-schema-generator@0.11.16`.
+  range by `@aws-amplify/backend-cli@1.10.0` through
+  `@aws-amplify/schema-generator@1.4.1` ->
+  `@aws-amplify/graphql-schema-generator@0.11.16` -> `csv-parse@5.6.0`
+  (revalidated on `2026-09-12`).
 - Dependabot ignores only `csv-parse` for this repository while follow-up issue
   `#98` tracks removal of the exception.
 - The scheduled upstream monitor reports when a new published
