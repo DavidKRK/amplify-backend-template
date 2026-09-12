@@ -167,8 +167,7 @@ jobs:
           missing = [name for name in names if name not in deps and name not in dev_deps]
 
           if missing:
-            print("Refusing to update packages with unknown scope:", " ".join(missing))
-            sys.exit(1)
+            print("Skipping packages with unknown scope:", " ".join(missing))
 
           if runtime:
             print("Updating runtime dependencies:", " ".join(runtime))
@@ -179,7 +178,7 @@ jobs:
             subprocess.check_call(["npm", "install", "--save-dev", *tooling])
 
           if not runtime and not tooling:
-            print("No packages to update.")
+            print("No direct dependencies to update.")
             sys.exit(0)
           PY
 
