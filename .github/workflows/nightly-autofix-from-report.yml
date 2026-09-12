@@ -162,6 +162,17 @@ jobs:
 
           deps = set((pkg.get("dependencies") or {}).keys())
           dev_deps = set((pkg.get("devDependencies") or {}).keys())
+          dep_specs = pkg.get("dependencies") or {}
+          dev_specs = pkg.get("devDependencies") or {}
+
+          def wanted_spec(current_spec, wanted_version):
+            if isinstance(wanted_version, str) and wanted_version[:1] in {"^", "~", ">", "<", "="}:
+              return wanted_version
+            if isinstance(current_spec, str) and current_spec.startswith("^"):
+              return f"^{wanted_version}"
+            if isinstance(current_spec, str) and current_spec.startswith("~"):
+              return f"~{wanted_version}"
+            return str(wanted_version)
 
           runtime = []
           tooling = []
@@ -169,28 +180,35 @@ jobs:
           for item in packages:
             name = item["name"]
             wanted = item["wanted"]
-            target = f"{name}@{wanted}"
             if name in deps:
-              runtime.append(target)
+              runtime.append((name, wanted_spec(dep_specs.get(name), wanted)))
             elif name in dev_deps:
-              tooling.append(target)
+              tooling.append((name, wanted_spec(dev_specs.get(name), wanted)))
             else:
-              missing.append(target)
+              missing.append(f"{name}@{wanted}")
 
           if missing:
             print("Skipping packages with unknown scope:", " ".join(missing))
 
           if runtime:
-            print("Updating runtime dependencies:", " ".join(runtime))
-            subprocess.check_call(["npm", "install", "--save", *runtime])
+            print("Updating runtime dependencies:", " ".join(f"{name}@{version}" for name, version in runtime))
+            subprocess.check_call([
+              "npm", "pkg", "set",
+              *[f"dependencies.{name}={version}" for name, version in runtime]
+            ])
 
           if tooling:
-            print("Updating dev dependencies:", " ".join(tooling))
-            subprocess.check_call(["npm", "install", "--save-dev", *tooling])
+            print("Updating dev dependencies:", " ".join(f"{name}@{version}" for name, version in tooling))
+            subprocess.check_call([
+              "npm", "pkg", "set",
+              *[f"devDependencies.{name}={version}" for name, version in tooling]
+            ])
 
           if not runtime and not tooling:
             print("No direct dependencies to update.")
             sys.exit(0)
+
+          subprocess.check_call(["npm", "install"])
           PY
 
       - name: Guardrail - fail on blocked major bumps
