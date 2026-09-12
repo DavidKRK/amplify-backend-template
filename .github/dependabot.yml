@@ -7,7 +7,8 @@ updates:
     ignore:
       # Temporary: GitHub cannot apply the csv-parse security update while the
       # latest published Amplify CLI line still resolves
-      # @aws-amplify/graphql-schema-generator@0.11.16 -> csv-parse@^5.5.2.
+      # @aws-amplify/schema-generator@1.4.1 ->
+      # @aws-amplify/graphql-schema-generator@0.11.16 -> csv-parse@5.6.0.
       # Remove this ignore as part of issue #98 once an upstream-compatible
       # Amplify upgrade path exists or the vulnerability disappears from audit.
       - dependency-name: "csv-parse"
