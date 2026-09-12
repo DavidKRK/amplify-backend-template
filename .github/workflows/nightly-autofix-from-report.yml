@@ -145,20 +145,44 @@ jobs:
           NAMES_JSON: ${{ steps.parse.outputs.names_json }}
         run: |
           set -euo pipefail
-          pkgs=$(python3 - <<'PY'
-          import json, os
-          arr = json.loads(os.environ["NAMES_JSON"])
-          print(" ".join(arr))
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          names = json.loads(os.environ["NAMES_JSON"])
+          if not names:
+            print("No packages to update.")
+            sys.exit(0)
+
+          with open("package.json", "r", encoding="utf-8") as f:
+            pkg = json.load(f)
+
+          deps = set((pkg.get("dependencies") or {}).keys())
+          dev_deps = set((pkg.get("devDependencies") or {}).keys())
+
+          runtime = [name for name in names if name in deps]
+          tooling = [name for name in names if name in dev_deps]
+          missing = [name for name in names if name not in deps and name not in dev_deps]
+
+          if missing:
+            print("Refusing to update packages with unknown scope:", " ".join(missing))
+            sys.exit(1)
+
+          if runtime:
+            print("Updating runtime dependencies:", " ".join(runtime))
+            subprocess.check_call(["npm", "install", "--save", *runtime])
+
+          if tooling:
+            print("Updating dev dependencies:", " ".join(tooling))
+            subprocess.check_call(["npm", "install", "--save-dev", *tooling])
+
+          if not runtime and not tooling:
+            print("No packages to update.")
+            sys.exit(0)
           PY
-          )
 
-          if [ -z "$pkgs" ]; then
-            echo "No packages to update."
-            exit 0
-          fi
-
-          echo "Updating: $pkgs"
-          npm install --save-dev $pkgs
           npm install
 
       - name: Guardrail - fail on blocked major bumps
