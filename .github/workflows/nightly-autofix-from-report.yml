@@ -80,6 +80,12 @@ jobs:
 
           # Dépendances autorisées en auto-fix
           allow = {
+            "@aws-amplify/backend",
+            "@aws-amplify/backend-auth",
+            "@aws-amplify/backend-cli",
+            "@aws-amplify/backend-data",
+            "@aws-amplify/backend-function",
+            "@aws-amplify/backend-storage",
             "@aws-sdk/client-dynamodb",
             "@aws-sdk/lib-dynamodb",
             "@types/aws-lambda",
@@ -179,7 +185,7 @@ jobs:
           // Seuils max auto-autorisés
           const blockedMax = {
             "typescript": 5,
-            "@types/node": 20
+            "@types/node": 24
           };
 
           const errors = [];
@@ -203,8 +209,14 @@ jobs:
       - name: Run checks
         if: steps.parse.outputs.count != '0'
         run: |
+          set -euo pipefail
           npm run typecheck --if-present
-          npm test --if-present
+          test_script="$(npm pkg get scripts.test || true)"
+          if [ -z "${test_script}" ] || [ "${test_script}" = "null" ] || echo "${test_script}" | grep -q "no test specified"; then
+            echo "Skipping placeholder test script."
+          else
+            npm test --if-present
+          fi
 
       - name: Create Pull Request
         if: steps.parse.outputs.count != '0'
