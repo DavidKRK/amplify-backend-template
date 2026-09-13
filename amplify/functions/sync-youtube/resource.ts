@@ -1,4 +1,4 @@
-import { defineFunction } from "@aws-amplify/backend";
+import { defineFunction, secret } from "@aws-amplify/backend";
 
 /**
  * Fonction planifiée : sync-youtube
@@ -19,4 +19,8 @@ export const syncYoutube = defineFunction({
   entry: "./handler.ts",
   schedule: "every 1h",
   timeoutSeconds: 60,
+  environment: {
+    YOUTUBE_API_KEY: secret("YOUTUBE_API_KEY"),
+    YOUTUBE_CHANNEL_ID: secret("YOUTUBE_CHANNEL_ID"),
+  },
 });
